@@ -1,0 +1,5 @@
+.build/
+binary.log
+cache/
+chroot/
+config/

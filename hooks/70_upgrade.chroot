@@ -1,0 +1,5 @@
+#!/bin/sh
+set -e
+echo "./ezgo-image: Upgrading rootfs"
+apt-get update
+apt-get -y dist-upgrade

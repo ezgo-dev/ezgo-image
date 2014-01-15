@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+echo "./ezgo-image: Removing unnecessary files..."
+rm -vf /var/cache/apt/*cache.bin
+rm -vf /var/lib/apt/lists/*_*
+rm -vrf /tmp/*

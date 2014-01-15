@@ -1,0 +1,578 @@
+#! /bin/sh
+set -e
+
+rm -rf config
+
+echo "Building on $(hostname --fqdn)"
+
+SEEDMIRROR=http://people.canonical.com/~ubuntu-archive/seeds/
+if [ -z "$MIRROR" ]; then
+	case $(hostname --fqdn) in
+		bld-*.mmjgroup.com)	;;
+		*.mmjgroup.com)
+			case $ARCH in
+				i386|amd64)	MIRROR=http://archive.mmjgroup.com/ubuntu/ ;;
+				*)		MIRROR=http://archive.mmjgroup.com/ubuntu-ports/ ;;
+			esac
+			;;
+		*.0c3.net)
+			case $ARCH in
+				i386|amd64)	MIRROR=http://mirrors.0c3.net/ubuntu/ ;;
+				*)		MIRROR=http://mirrors.0c3.net/ubuntu-ports/ ;;
+			esac
+			;;
+		*.ubuntu.com)		MIRROR=http://ftpmaster.internal/ubuntu/
+					SEEDMIRROR=http://archive-team.internal/seeds/
+					;;
+		*.warthogs.hbd.com)	MIRROR=http://ftpmaster.internal/ubuntu/
+					SEEDMIRROR=http://archive-team.internal/seeds/
+					;;
+		*.buildd)		MIRROR=http://ftpmaster.internal/ubuntu/
+					SEEDMIRROR=http://archive-team.internal/seeds/
+					;;
+	esac
+fi
+
+mkdir -p config/package-lists
+
+add_task ()
+{
+	local pass="$1"
+	shift
+	local task
+
+	# The removal of direct task installation support from live-build
+	# poses some problems.  If the chroot has multiarch configured - for
+	# example, if we're building for amd64 - then dumpavail will show
+	# foreign-architecture packages which will have their own Task
+	# lines, but which we don't want to install.  (Compare
+	# PackageContainerInterface::FromTask in apt, which restricts task
+	# expansion to the native architecture.)  We therefore restrict our
+	# search to stanzas with Architecture: $ARCH or all.
+	#
+	# However, even this may not be accurate enough.  At the moment I
+	# have no idea what happens if an Architecture: all package has
+	# different Task fields on different architectures.  This is
+	# probably a lurking timebomb that we need to fix.  In the meantime,
+	# the Architecture restriction at least saves us from abject
+	# failure.
+
+	for task; do
+		# We need a ridiculous number of backslashes to protect
+		# parentheses from eval.
+		echo "!chroot chroot apt-cache dumpavail | grep-dctrl -nsPackage \\\\\\( -XFArchitecture $ARCH -o -XFArchitecture all \\\\\\) -a -wFTask $task" >> "config/package-lists/livecd-rootfs.list.chroot_$pass"
+	done
+}
+
+add_package ()
+{
+	local pass="$1"
+	shift
+	local pkg
+
+	for pkg; do
+		echo "$pkg" >> "config/package-lists/livecd-rootfs.list.chroot_$pass"
+	done
+}
+
+OPTS=
+COMPONENTS=
+BINARY_REMOVE_LINUX=:
+BINARY_IMAGES=none
+MEMTEST=none
+SOURCE='--source false'
+BOOTLOADER=none
+BOOTAPPEND_LIVE=
+LIVE_TASK=
+PREINSTALLED=false
+PREINSTALL_POOL=
+PREINSTALL_POOL_SEEDS=
+
+CHROOT_HOOKS=
+BINARY_HOOKS=
+
+add_chroot_hook ()
+{
+	CHROOT_HOOKS="${CHROOT_HOOKS:+$CHROOT_HOOKS }$1"
+}
+
+add_binary_hook ()
+{
+	BINARY_HOOKS="${BINARY_HOOKS:+$BINARY_HOOKS }$1"
+}
+
+case $IMAGEFORMAT in
+	ext2|ext3|ext4)
+		OPTS="${OPTS:+$OPTS }--initramfs none --chroot-filesystem $IMAGEFORMAT"
+		PREINSTALLED=true
+		case $SUBPROJECT in
+			wubi)
+				add_package install lupin-support
+				COMPONENTS='main restricted universe multiverse'
+				;;
+			*)
+				add_package live jasper
+				OPTS="${OPTS:+$OPTS }--swap-file-path SWAP.swap"
+				OPTS="${OPTS:+$OPTS }--swap-file-size 512"
+				;;
+		esac
+		;;
+
+	plain)
+		OPTS="${OPTS:+$OPTS }--initramfs none --chroot-filesystem $IMAGEFORMAT"
+		PREINSTALLED=true
+		;;
+
+	*)
+		case $PROJECT in
+			ubuntu-server|ubuntu-touch)
+				;;
+			*)
+				add_package live lupin-casper
+				;;
+		esac
+		;;
+esac
+
+if [ "$PREINSTALLED" = "true" ] && [ "$SUBPROJECT" != "wubi" ]; then
+	# This is an oem-config preinstalled image, touch a random file that
+	# we can refer back to during build, cause that's wildly hackish
+	touch config/oem-config-preinstalled
+	case $PROJECT in
+		kubuntu*)
+			add_package live oem-config-kde ubiquity-frontend-kde
+			add_package live ubiquity-slideshow-kubuntu
+			;;
+		lubuntu*)
+			add_package live oem-config-gtk ubiquity-frontend-gtk
+			add_package live ubiquity-slideshow-lubuntu
+			;;
+		xubuntu*)
+			add_package live oem-config-gtk ubiquity-frontend-gtk
+			add_package live ubiquity-slideshow-xubuntu
+			;;
+		ubuntu-server)
+			add_package live oem-config-debconf ubiquity-frontend-debconf
+			;;
+		ubuntu-core|base|ubuntu-touch)
+			;;
+		*)
+			add_package live oem-config-gtk ubiquity-frontend-gtk
+			add_package live ubiquity-slideshow-ubuntu
+			;;
+	esac
+fi
+
+case $BINARYFORMAT in
+	iso*|usb*)
+		BINARY_IMAGES="$BINARYFORMAT"
+		MEMTEST=memtest86+
+		BOOTLOADER=syslinux
+		OPTS="${OPTS:+$OPTS }--zsync=false"
+		;;
+esac
+
+case $PROJECT in
+	ubuntu|ubuntu-dvd)
+		add_task install minimal standard
+		case "$ARCH+$SUBARCH" in
+			armhf+omap4)
+				# Don't use the task as this drags in the regular X
+				# stack (the metapackage doesn't). We want the
+				# "reverted" one.
+				add_package install ubuntu-desktop \
+					xserver-xorg-core-omap-revert \
+					xserver-xorg-video-omap-revert \
+					xserver-xorg-input-evdev-omap-revert 
+				;;
+			*)
+				add_task install ubuntu-desktop
+				;;
+		esac
+		LIVE_TASK='ubuntu-live'
+		;;
+
+	kubuntu|kubuntu-dvd)
+		add_task install minimal standard
+		case "$ARCH+$SUBARCH" in
+			armhf+omap4)
+				# Don't use the task as this drags in the regular X
+				# stack (the metapackage doesn't). We want the
+				# "reverted" one.
+				add_package install kubuntu-desktop \
+					xserver-xorg-core-omap-revert \
+					xserver-xorg-video-omap-revert \
+					xserver-xorg-input-evdev-omap-revert 
+				;;
+			*)
+				add_task install kubuntu-desktop
+				;;
+		esac
+		LIVE_TASK='kubuntu-live'
+		COMPONENTS='main restricted universe'
+		add_chroot_hook remove-gnome-icon-cache
+		;;
+
+	kubuntu-active)
+		add_task install minimal standard kubuntu-active
+		LIVE_TASK='kubuntu-active-live'
+		COMPONENTS='main restricted universe'
+		add_chroot_hook remove-gnome-icon-cache
+		;;
+
+	edubuntu|edubuntu-dvd)
+		add_task install minimal standard ubuntu-desktop edubuntu-desktop-gnome
+		LIVE_TASK='edubuntu-live'
+		COMPONENTS='main restricted universe'
+		;;
+
+	xubuntu)
+		add_task install minimal standard xubuntu-desktop
+		add_package install xterm
+		LIVE_TASK='xubuntu-live'
+		COMPONENTS='main restricted universe multiverse'
+		case $ARCH in
+			amd64|i386)	KERNEL_FLAVOURS=generic ;;
+		esac
+		;;
+
+	ubuntu-netbook)
+		add_task install minimal standard ubuntu-netbook
+		LIVE_TASK='netbook-live'
+		;;
+
+	mythbuntu)
+		add_task install minimal standard mythbuntu-desktop
+		LIVE_TASK='mythbuntu-live'
+		COMPONENTS='main restricted universe multiverse'
+		;;
+
+	lubuntu)
+		add_task install minimal standard lubuntu-desktop
+		LIVE_TASK='lubuntu-live'
+		COMPONENTS='main restricted universe multiverse'
+		case $ARCH in
+			amd64|i386)	KERNEL_FLAVOURS=generic ;;
+		esac
+
+		# The Lubuntu STRUCTURE file has "feature
+		# no-follow-recommends".  Mirror this.
+		export APT_OPTIONS="--yes --no-install-recommends"
+		;;
+
+	ubuntu-gnome)
+		add_task install minimal standard ubuntu-gnome-desktop
+		LIVE_TASK='ubuntu-gnome-live'
+		COMPONENTS='main restricted universe'
+		;;
+
+	ubuntustudio-dvd)
+		add_task install minimal standard ubuntustudio-desktop ubuntustudio-audio ubuntustudio-font-meta ubuntustudio-graphics ubuntustudio-video ubuntustudio-publishing ubuntustudio-photography
+		COMPONENTS='main restricted universe multiverse'
+		case $ARCH in
+			amd64|i386)	KERNEL_FLAVOURS=lowlatency ;;
+		esac
+		;;
+
+	ubuntukylin)
+		add_task install minimal standard ubuntu-desktop
+		add_package install ubuntukylin-default-settings
+		LIVE_TASK='ubuntu-live'
+		COMPONENTS='main restricted universe'
+		;;
+
+	base)
+		add_task install minimal standard
+		;;
+
+	ubuntu-server)
+		add_task install minimal
+		COMPONENTS='main'
+		PREINSTALL_POOL_SEEDS='server-ship'
+		;;
+
+	ubuntu-core)
+		OPTS="${OPTS:+$OPTS }--bootstrap-flavour=minimal"
+		;;
+
+	ubuntu-touch)
+		add_package install ubuntu-minimal ubuntu-touch
+		COMPONENTS='main restricted universe'
+		BOOTAPPEND_LIVE='hostname=ubuntu-phablet username=ubuntu'
+		export LB_BOOTSTRAP_INCLUDE='apt-transport-https gnupg'
+		OPTS="${OPTS:+$OPTS }--apt-recommends false"
+		OPTS="${OPTS:+$OPTS }--compression gzip"
+		OPTS="${OPTS:+$OPTS }--swap-file-path SWAP.swap"
+		OPTS="${OPTS:+$OPTS }--swap-file-size 100"
+		OPTS="${OPTS:+$OPTS }--system normal"
+		OPTS="${OPTS:+$OPTS }--zsync false"
+		;;
+
+	*)
+		echo "unknown project $PROJECT" >&2
+		exit 2
+		;;
+esac
+
+if [ "$PREINSTALLED" != "true" ] && [ "$LIVE_TASK" ]; then
+	add_task live "$LIVE_TASK"
+fi
+
+case $PROJECT in
+	ubuntu-dvd)
+		add_task install ubuntu-usb
+		add_task live ubuntu-usb-live
+		;;
+
+	*-dvd)
+		add_task live "$PROJECT-live"
+		;;
+esac
+
+case $ARCH in
+	armel|armhf)
+		KERNEL_FLAVOURS="${SUBARCH:-$KERNEL_FLAVOURS}"
+		case $SUBARCH in
+			dove)
+				BINARY_REMOVE_LINUX=false
+				;;
+			omap)
+				add_package install u-boot-linaro-omap3-beagle u-boot-tools
+				BINARY_REMOVE_LINUX=false
+				;;
+			omap4)
+				case $PROJECT in
+					ubuntu-server|ubuntu-core|base)
+						add_package install u-boot-linaro-omap4-panda u-boot-tools
+						;;
+					*)
+						add_package install u-boot-linaro-omap4-panda u-boot-tools pvr-omap4
+						;;
+				esac
+				BINARY_REMOVE_LINUX=false
+				;;
+			mx5)
+				COMPONENTS='main restricted universe'
+				KERNEL_FLAVOURS=linaro-lt-mx5
+				add_package install flash-kernel u-boot-linaro-mx53loco u-boot-tools
+				BINARY_REMOVE_LINUX=false
+				;;
+			ac100)
+				COMPONENTS='main restricted universe multiverse'
+				add_package install zram-config abootimg
+				add_package live ac100-tarball-installer
+				BINARY_REMOVE_LINUX=false
+				;;
+			nexus7)
+				COMPONENTS='main restricted universe multiverse'
+				add_package install zram-config abootimg 
+				add_package install nvidia-tegra3 ubuntu-defaults-nexus7
+				add_package live ac100-tarball-installer
+				BINARY_REMOVE_LINUX=false
+				mkdir -p config/preseed
+				echo "linux-firmware-nexus7 shared/nexus7_notice_accepted boolean true" >config/preseed/linux-firmware-nexus7.preseed.chroot
+				echo "d-i passwd/auto-login boolean true" >config/preseed/autologin.preseed.chroot
+				;;
+		esac
+		;;
+esac
+
+case $PROJECT in
+	ubuntu-server|ubuntu-core|ubuntu-touch)
+		OPTS="${OPTS:+$OPTS }--linux-packages=none --initramfs=none"
+		KERNEL_FLAVOURS=none
+		BINARY_REMOVE_LINUX=false
+		;;
+esac
+
+add_chroot_hook update-apt-file-cache
+add_chroot_hook update-apt-xapian-index
+add_chroot_hook update-mlocate-database
+add_chroot_hook remove-dbus-machine-id
+add_chroot_hook remove-openssh-server-host-keys
+add_chroot_hook remove-udev-persistent-rules
+
+case $PROJECT in
+	ubuntu-server)
+		;;
+
+	*)
+		add_chroot_hook remove-python-py
+		;;
+esac
+
+case $SUBPROJECT in
+	wubi)
+		add_binary_hook build-wubildr
+		;;
+esac
+
+lb config noauto \
+	--mode ubuntu \
+	--distribution "$SUITE" \
+	--bootstrap-keyring ubuntu-keyring \
+	--binary-images "$BINARY_IMAGES" \
+	--memtest "$MEMTEST" \
+	$SOURCE \
+	--build-with-chroot false \
+	${MIRROR:+--parent-mirror-bootstrap $MIRROR} \
+	${COMPONENTS:+--parent-archive-areas "$COMPONENTS"} \
+	--apt-source-archives false \
+	${KERNEL_FLAVOURS:+--linux-flavours "$KERNEL_FLAVOURS"} \
+	--initsystem none \
+	--bootloader "$BOOTLOADER" \
+	--initramfs-compression lzma \
+	--cache-stages "chroot" \
+	${BOOTAPPEND_LIVE:+--bootappend-live "$BOOTAPPEND_LIVE"} \
+	$OPTS
+
+echo "LB_CHROOT_HOOKS=\"$CHROOT_HOOKS\"" >> config/chroot
+echo "LB_BINARY_HOOKS=\"$BINARY_HOOKS\"" >> config/binary
+echo "BUILDSTAMP=\"$NOW\"" >> config/binary
+
+case $PROJECT in
+	ubuntu-server)
+		cat > config/hooks/100-remove-fstab.chroot <<EOF
+#! /bin/sh
+rm -f /etc/fstab
+EOF
+		;;
+
+	ubuntukylin)
+		cat > config/hooks/100-ubuntukylin.chroot <<EOF
+#! /bin/sh
+set -e
+HOOK=/usr/share/ubuntukylin-default-settings/hooks/chroot
+if [ -x \$HOOK ]; then
+	exec \$HOOK
+fi
+exit 0
+EOF
+		;;
+esac
+
+if $BINARY_REMOVE_LINUX; then
+	cat > config/binary_rootfs/excludes << EOF
+boot/vmlinu?-*
+boot/initrd.img-*
+EOF
+fi
+
+if [ "$PROPOSED" ]; then
+	. config/bootstrap
+
+	cat > config/archives/proposed.list.chroot << EOF
+deb $LB_PARENT_MIRROR_BINARY_VOLATILE $SUITE-proposed $LB_PARENT_ARCHIVE_AREAS
+EOF
+	cp -a config/archives/proposed.list.chroot \
+	      config/archives/proposed.list.binary
+fi
+
+case $PROJECT in
+	*-dvd)
+		. config/bootstrap
+
+		cat > config/archives/dvd.list.binary << EOF
+deb $LB_PARENT_MIRROR_BINARY $SUITE universe multiverse
+deb $LB_PARENT_MIRROR_BINARY_SECURITY $SUITE-security universe multiverse
+deb $LB_PARENT_MIRROR_BINARY_VOLATILE $SUITE-updates universe multiverse
+EOF
+		if [ "$PROPOSED" ]; then
+			cat >> config/archives/dvd.list.binary << EOF
+deb $LB_PARENT_MIRROR_BINARY_VOLATILE $SUITE-proposed universe multiverse
+EOF
+		fi
+		;;
+
+	ubuntu-touch)
+		cp -af /usr/share/livecd-rootfs/live-build/ubuntu-touch/* \
+			config/
+		;;
+esac
+
+# cribbed from cdimage, perhaps this should be a small helper script in germinate?
+add_inheritance () {
+	case " $inherit " in
+		*" $1 "*)
+			;;
+		*)
+			inherit="${inherit:+$inherit }$1"
+			;;
+	esac
+}
+
+expand_inheritance () {
+	for seed in $(grep "^$1:" config/germinate-output/structure | cut -d: -f2); do
+		expand_inheritance "$seed"
+	done
+	add_inheritance "$1"
+}
+
+inheritance () {
+	inherit=
+	expand_inheritance "$1"
+	echo "$inherit"
+}
+
+if [ "$PREINSTALLED" = "true" ]; then
+	if [ -n "$PREINSTALL_POOL_SEEDS" ]; then
+		mkdir -p config/germinate-output
+		case $PROJECT in
+			kubuntu-active*)
+				SEED=kubuntu-active.$SUITE
+				;;
+			kubuntu*)
+				SEED=kubuntu.$SUITE
+				;;
+			xubuntu*)
+				SEED=xubuntu.$SUITE
+				;;
+			*)
+				SEED=ubuntu.$SUITE
+				;;
+		esac
+		(cd config/germinate-output && germinate --no-rdepends --no-installer \
+			-S $SEEDMIRROR -m $MIRROR -d $SUITE -s $SEED \
+			${COMPONENTS:+-c "$COMPONENTS"} -a $ARCH)
+
+		UNWANTED_SEEDS="${LIVE_TASK:+$LIVE_TASK }boot installer required"
+		for i in $UNWANTED_SEEDS; do
+			UNWANTED_SEEDS="${UNWANTED_SEEDS:+$UNWANTED_SEEDS }$(inheritance $i)"
+		done
+
+		for i in $PREINSTALL_POOL_SEEDS; do
+			PREINSTALL_POOL_SEEDS="${PREINSTALL_POOL_SEEDS:+$PREINSTALL_POOL_SEEDS }$(inheritance $i)"
+		done
+
+		for i in $PREINSTALL_POOL_SEEDS; do
+			case " $UNWANTED_SEEDS " in
+				*" $i "*)
+					;;
+				*)
+					PPS_EXP="${PPS_EXP:+$PPS_EXP }$i"
+					;;
+			esac
+		done
+
+		for i in $PPS_EXP; do
+			PREINSTALL_POOL="$PREINSTALL_POOL $(awk '{print $1}' \
+			config/germinate-output/$i | egrep -v '^-|^Package|^\|' | tr '\n' ' ')"
+		done
+	fi
+	if [ -n "$PREINSTALL_POOL" ]; then
+		mkdir -p config/gnupg
+		mkdir -p config/indices
+		for component in $COMPONENTS; do
+			(cd config/indices && \
+		 	 wget $MIRROR/indices/override.$SUITE.$component && \
+			 wget $MIRROR/indices/override.$SUITE.extra.$component \
+			)
+		done
+		cat > config/hooks/100-preinstall-pool.chroot <<EOF
+#! /bin/sh
+mkdir -p /var/lib/preinstalled-pool/pool/
+cd /var/lib/preinstalled-pool/pool/
+apt-get -y download $PREINSTALL_POOL
+EOF
+	fi
+fi

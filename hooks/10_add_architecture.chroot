@@ -1,0 +1,6 @@
+#!/bin/sh
+set -e
+if [ "`dpkg-architecture -qDEB_HOST_ARCH`" == "amd64" ]; then
+	echo "./ezgo-image: Adding i386 architecture";
+	dpkg --add-architecture i386;
+fi

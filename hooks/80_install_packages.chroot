@@ -1,0 +1,22 @@
+#!/bin/sh
+apt-get install vim vim-gtk
+apt-get install gksu
+apt-get install kdesudo zenity
+apt-get install chromium-browser
+apt-get install language-pack-zh-hant language-pack-zh-hant-base language-pack-gnome-zh-hant language-pack-kde-zh-hant kde-l10n-zhtw firefox-locale-zh-hant
+apt-get install kdeedu kdegraphics kdemultimedia
+apt-get install im-switch hime hime-qt4-immodule hime-gtk3-immodule hime-chewing hime-anthy
+apt-get install app-install-data-medibuntu apport-hooks-medibuntu
+apt-get install boot-repair
+apt-get install oracle-java8-installer
+apt-get install sigil
+apt-get install kazam
+apt-get install blender
+apt-get install nitroshare
+apt-get install ffdiaporama ffdiaporama-texturemate
+apt-get install kdegames supertux supertuxkart pingus tuxmath tuxtype
+apt-get install scribus
+apt-get install tuxpaint mypaint inkscape gimp digikam gthumb
+apt-get install openshot kdenlive vlc totem cheese guvcview brasero amarok audacious audacity tuxguitar musescore python-webkit
+apt-get install qtqr furiusisomount hydrogen winff qjackctl ardour filezilla pidgin remmina pcmanx-gtk2 stellarium celestia drgeo kayali bkchem ghemical avogadro gchempaint pymol ballview scratch ardesia kde-workspace-randr
+

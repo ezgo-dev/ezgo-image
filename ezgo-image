@@ -1,0 +1,235 @@
+#! /bin/sh
+# Build an image based on an Ubuntu flavour plus a defaults package.
+#
+# Authors: Colin Watson <cjwatson@ubuntu.com>
+#          Martin Pitt <martin.pitt@ubuntu.com>
+# Copyright: (C) 2011 Canonical Ltd.
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+set -e
+
+LOCALE=zh_TW.UTF8
+PACKAGE=
+ARCH=
+COMPONENTS="main restricted universe multiverse"
+MIRROR=
+SECURITY_MIRROR=
+PPA=
+FLAVOUR=kubuntu
+SUITE=$(lsb_release -sc)
+KEEP_APT_OPT=
+DELETE_APT_LISTS="rm -vf /var/lib/apt/lists/*_*"
+
+if which dpkg-architecture >/dev/null 2>&1; then
+	ARCH="$(dpkg-architecture -qDEB_HOST_ARCH)"
+fi
+
+help () {
+    cat >&2 <<EOF
+Usage: $0 {--locale code|--package name} [options]
+
+
+Options:
+  --locale ll_CC          : Same as --package ubuntu-defaults-ll-cc
+  --package               : Install additional package; can be a name or path to a local .deb
+  --arch                  : Architecture [default: $ARCH]
+  --release RELEASE       : Ubuntu release the image is based on [default: $SUITE]
+  --components COMPONENTS : List of archive components to enable [default: main,restricted]
+  --mirror                : Ubuntu mirror to be used during build
+                            [default: http://archive.ubuntu.com/ubuntu/]
+  --security-mirror       : Ubuntu security mirror to be used during build
+                            [default: http://security.ubuntu.com/ubuntu/]
+  --ppa USER/PPANAME      : Enable additional PPA [default: none]
+  --keep-apt              : Do not remove apt indexes from live system
+  --keep-apt-components COMPONENTS : 
+                            Do not remove apt indexes for selected components from live
+                            system [default: none]
+
+EOF
+}
+
+# add $PPA
+add_ppa () {
+    local FINGERPRINT=`wget -q -O- https://launchpad.net/api/1.0/~${PPA%/*}/+archive/${PPA#*/}/signing_key_fingerprint`
+    if ! expr match "$FINGERPRINT" '^\"[a-zA-Z0-9]\{16,\}"$' >/dev/null; then
+	echo "Invalid fingerprint returned by Launchpad: $FINGERPRINT" >&2
+	exit 1
+    fi
+    # chop off enclosing quotes
+    FINGERPRINT=${FINGERPRINT%'"'}
+    FINGERPRINT=${FINGERPRINT#'"'}
+
+    # fetch GPG key
+    gpg --no-default-keyring --primary-keyring config/archives/ubuntu-defaults.key  --keyserver keyserver.ubuntu.com --recv-key "$FINGERPRINT"
+
+    # add PPA apt source
+    local DEB_PPA="deb http://ppa.launchpad.net/$PPA/ubuntu $SUITE main"
+    echo "$DEB_PPA" > config/archives/ubuntu-defaults.list
+}
+
+eval set -- "$(getopt -o '' -l help,locale:,keep-apt,keep-apt-components:,package:,arch:,release:,components:,mirror:,security-mirror:,ppa: -- "$@")" || { help; exit 1; }
+while :; do
+    case $1 in
+	--help)
+	    help
+	    exit 0
+	    ;;
+	--locale)
+	    LOCALE="$2"
+	    shift 2
+	    ;;
+	--package)
+	    PACKAGE="$2"
+	    shift 2
+	    ;;
+	--arch)
+	    ARCH="$2"
+	    shift 2
+	    ;;
+	--release)
+	    SUITE="$2"
+	    shift 2
+	    ;;
+	--components)
+	    COMPONENTS="$(echo "$2" | sed 's/,/ /g' | tr -s ' ')"
+	    shift 2
+	    ;;
+	--mirror)
+	    MIRROR="$2"
+	    shift 2
+	    ;;
+	--security-mirror)
+	    SECURITY_MIRROR="$2"
+	    shift 2
+	    ;;
+	--ppa)
+	    PPA="$2"
+	    if ! expr match "$PPA" '^[.[:alnum:]-]\+/[[:alnum:]-]\+$' >/dev/null; then
+		echo "Invalid PPA specification, must be lp_username/ppaname" >&2
+		exit 1
+	    fi
+	    shift 2
+	    ;;
+        --keep-apt)
+            KEEP_APT_OPT="$1"
+            DELETE_APT_LISTS="rm -vf /var/lib/apt/lists/*_Translation-*"
+            shift
+            ;;
+        --keep-apt-components)
+            KEEP_APT_OPT="$1"
+            components="$(echo "$2" | sed 's/,/ /g')"
+            DELETE_APT_LISTS="rm -vf /var/lib/apt/lists/*_Translation-*
+rm -vf /var/lib/apt/lists/*_main_*
+rm -vf /var/lib/apt/lists/*_restricted_*
+rm -vf /var/lib/apt/lists/*_universe_*
+rm -vf /var/lib/apt/lists/*_multiverse_*"
+            for comp in $components; do
+                    case $comp in
+                            main|restricted|universe|multiverse)
+                                DELETE_APT_LISTS=$(echo "$DELETE_APT_LISTS" | grep -v $comp)
+                                ;;
+                            *)
+                                echo "ERROR: unknown component $comp"
+                                exit 1
+                                ;;
+                    esac
+            done
+            shift 2
+            ;;
+	--)
+	    shift
+	    break
+	    ;;
+	*)
+	    help
+	    exit 1
+	    ;;
+    esac
+done
+
+if ([ -z "$LOCALE" ] && [ -z "$PACKAGE" ]) || [ -z "$ARCH" ]; then
+    help
+    exit 1
+fi
+
+if ([ -n "$MIRROR" ] || [ -n "$SECURITY_MIRROR" ]) && [ -n "$KEEP_APT_OPT" ]; then
+    echo "ERROR: $KEEP_APT_OPT cannot currently be used along with --mirror or --security-mirror" >&2
+    exit 1
+fi
+
+if [ "$LOCALE" ] && [ -z "$PACKAGE" ]; then
+    PACKAGE="ubuntu-defaults-$(echo "$LOCALE" | tr '_A-Z' '-a-z')"
+fi
+
+if [ "$(id -u)" = 0 ]; then
+    SUDO=env
+else
+    SUDO=sudo
+fi
+
+# Make sure all our dependencies (which are Recommends of our package) are
+# installed.  This is a bit dubious long-term, but seems to be needed to
+# make autobuilds reliable.
+case $ARCH in
+    *amd64|*i386)
+	$SUDO apt-get -y install syslinux-themes-ubuntu syslinux-themes-ubuntu-$SUITE gfxboot-theme-ubuntu memtest86+ syslinux || exit 1
+	;;
+esac
+$SUDO apt-get -y install ubuntu-defaults-builder genisoimage
+
+$SUDO lb clean
+rm -f .stage/config
+
+
+echo "Suite is $SUITE"
+
+SUITE="$SUITE" PROJECT="$FLAVOUR" ARCH="$ARCH" LB_ARCHITECTURES="$ARCH" \
+    LB_MIRROR_BOOTSTRAP="$MIRROR" LB_MIRROR_CHROOT_SECURITY="$SECURITY_MIRROR" \
+    IMAGEFORMAT=squashfs BINARYFORMAT=iso-hybrid lb config
+
+if [ "$COMPONENTS" ]; then
+    sed -i "s/^\\(LB_PARENT_ARCHIVE_AREAS=\\).*/\\1\"$COMPONENTS\"/" \
+	config/bootstrap
+fi
+
+sed -i "s/^\\(LB_SYSLINUX_THEME=\\).*/\\1\"ubuntu-$SUITE\"/" config/binary
+
+if [ "${PACKAGE%.deb}" = "$PACKAGE" ]; then
+    # package name, apt-get'able
+    echo "$PACKAGE" >> config/package-lists/ubuntu-defaults.list.chroot_install
+else
+    # local deb
+    cp "$PACKAGE" config/packages.chroot/
+fi
+
+if [ -n "$PPA" ]; then
+    add_ppa
+fi
+
+PACKAGENAME=${PACKAGE%%_*}
+PACKAGENAME=${PACKAGENAME##*/}
+
+# work around live-build failure with lzma initramfs (Debian #637979)
+sed -i 's/^LB_INITRAMFS_COMPRESSION="lzma"/LB_INITRAMFS_COMPRESSION="gzip"/' config/common
+
+# Update chroot
+cp hooks/* config/hooks/
+
+DISPLAY= $SUDO PROJECT="$FLAVOUR" ARCH="$ARCH" lb build
+
+if [ -e ./binary.hybrid.iso ]; then
+    curdate=`date +%Y%m%d%H%M`
+    mv ./binary.hybrid.iso ./neon5-${curdate}.iso
+fi
