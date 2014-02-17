@@ -1,5 +1,13 @@
+.lock
 .build/
-binary.log
+binary/
 cache/
 chroot/
 config/
+binary.log
+binary.contents
+binary.packages
+chroot.headers
+chroot.packages.install
+chroot.packages.live
+*.iso

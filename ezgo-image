@@ -20,7 +20,7 @@
 
 set -e
 
-LOCALE=zh_TW.UTF8
+LOCALE=
 PACKAGE=
 ARCH=
 COMPONENTS="main restricted universe multiverse"
@@ -187,11 +187,12 @@ case $ARCH in
 	$SUDO apt-get -y install syslinux-themes-ubuntu syslinux-themes-ubuntu-$SUITE gfxboot-theme-ubuntu memtest86+ syslinux || exit 1
 	;;
 esac
-$SUDO apt-get -y install ubuntu-defaults-builder genisoimage
 
 $SUDO lb clean
 rm -f .stage/config
 
+sed -i "s/^\\(LB_DISTRIBUTION=\\).*/\\1\"$SUITE\"/" config/bootstrap
+sed -i "s/^\\(LB_DEBIAN_INSTALLER_DISTRIBUTION=\\).*/\\1\"$SUITE\"/" config/binary
 
 echo "Suite is $SUITE"
 
@@ -208,10 +209,10 @@ sed -i "s/^\\(LB_SYSLINUX_THEME=\\).*/\\1\"ubuntu-$SUITE\"/" config/binary
 
 if [ "${PACKAGE%.deb}" = "$PACKAGE" ]; then
     # package name, apt-get'able
-    echo "$PACKAGE" >> config/package-lists/ubuntu-defaults.list.chroot_install
+    echo "$PACKAGE" >> config/chroot_local-packageslists/ubuntu-defaults.list.chroot_install
 else
     # local deb
-    cp "$PACKAGE" config/packages.chroot/
+    cp "$PACKAGE" config/chroot_local-packages/
 fi
 
 if [ -n "$PPA" ]; then
@@ -224,12 +225,10 @@ PACKAGENAME=${PACKAGENAME##*/}
 # work around live-build failure with lzma initramfs (Debian #637979)
 sed -i 's/^LB_INITRAMFS_COMPRESSION="lzma"/LB_INITRAMFS_COMPRESSION="gzip"/' config/common
 
-# Update chroot
-cp hooks/* config/hooks/
-
 DISPLAY= $SUDO PROJECT="$FLAVOUR" ARCH="$ARCH" lb build
 
 if [ -e ./binary.hybrid.iso ]; then
     curdate=`date +%Y%m%d%H%M`
-    mv ./binary.hybrid.iso ./neon5-${curdate}.iso
+    mv ./binary.hybrid.iso ./ezgo-${curdate}.iso
+    md5sum ./ezgo-${curdate}.iso > ./ezgo-${curdate}.iso.md5sum
 fi
