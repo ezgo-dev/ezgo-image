@@ -1,5 +1,5 @@
 #!/bin/bash
 
-im-switch -n hime
+im-config -n hime
 
 rm -f setup-im.sh
