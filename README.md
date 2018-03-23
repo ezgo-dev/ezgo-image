@@ -1,10 +1,8 @@
 # ezgo Image Creator(respin Ubuntu ISO)
 
-# 總攬
-
 重建 Ubuntu ISO 並加入以下 ezgo 相關修改
 
-- ...
+- 使用 hime 輸入框架
 - ...
 - ...
 
@@ -47,5 +45,11 @@ Or:
 
 你可以使用 -k 來指定要使用的 mainline kernel 版本。版本號碼可以從 http://kernel.ubuntu.com/~kernel-ppa/mainline 這邊找到，並將目錄名稱當成 -k 的參數。
 
-重建 ISO 依照網路及機器好壞，會花大約 10 到 30 分鐘，並將產生出來的 ISO 存放到 ```destination/``` 目錄裡。
+重建 ISO 依照網路及機器好壞，會花大約 60 到 100 分鐘，並將產生出來的 ISO 存放到 ```destination/``` 目錄裡。
+
+## 3. 如何新增 packages
+
+已經在官方 repo 的 package，可以直接寫在 build.sh 裡的 installpackages+="" 變數中。
+
+需要另外安裝 PPA 的可以在 build.sh 最下方的 isorespin.sh 之後使用 -r 參數來增加。
 
