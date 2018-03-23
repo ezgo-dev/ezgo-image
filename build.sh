@@ -48,8 +48,6 @@ installpackages+="openshot kdenlive vlc totem cheese guvcview brasero amarok aud
 installpackages+="qtqr furiusisomount hydrogen winff qjackctl ardour filezilla pidgin remmina pcmanx-gtk2 stellarium kayali bkchem ghemical avogadro gchempaint pymol scratch "
 # wine
 installpackages+="wine1.6 winetricks wine-gecko wine-mono "
-# umplayer
-installpackages+="umplayer "
 
 # Packages that will be removed:
 removepackages="kmail kontact rekonq korganizer ubuntu-release-upgrader-qt update-manager-core muon-notifier "
@@ -61,7 +59,6 @@ sync;sync;sync
 	$KERNELARGS \
 	-r "ppa:graphics-drivers/ppa" \
 	-r "ppa:ubuntu-wine/ppa" \
-	-r "ppa:webupd8team/umplayer" \
 	-p "$installpackages" \
 	-f wrapper-network.sh \
 	-f wrapper-nvidia.sh \
