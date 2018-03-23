@@ -1,13 +1,3 @@
-.lock
-.build/
-binary/
-cache/
-chroot/
-config/
-binary.log
-binary.contents
-binary.packages
-chroot.headers
-chroot.packages.install
-chroot.packages.live
-*.iso
+destination/*.iso
+origin/*.iso
+xmind/*.zip
