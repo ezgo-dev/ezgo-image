@@ -14,13 +14,12 @@ RUN mkdir /docker-output
 COPY ./docker-entrypoint.sh /
 COPY ./build.sh /
 COPY ./wrapper-network.sh /
-COPY ./wrapper-nvidia.sh /
-ADD xmind_installer /opt/xmind_installer
+COPY ./wrapper-ezgo.sh /
+ADD xmind_installer /xmind_installer
 ADD ezgo /ezgo
 
 RUN chmod +x docker-entrypoint.sh
 RUN chmod +x build.sh
 RUN chmod +x wrapper-network.sh
-RUN chmod +x wrapper-nvidia.sh
-RUN chmod +x ezgo/ezgo.sh
+RUN chmod +x wrapper-ezgo.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
