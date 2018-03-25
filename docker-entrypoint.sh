@@ -50,6 +50,7 @@ if [ "$1" = 'respin' ]; then
 
 		rename -f -v -e s/linuxium/ezgo-$(date +%Y%m%d%H%M)/ *.iso
 	    	mv ezgo-* "/docker-output/"
+		cp isorespin.log "/docker-output/"
 	fi
 	
 	exit 0
