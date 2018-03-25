@@ -1,5 +1,5 @@
 #!/bin/bash
 
-im-config -n hime
+#im-config -n hime
+echo "run_im hime" > /etc/skel/.xinputrc
 
-rm -f setup-im.sh
