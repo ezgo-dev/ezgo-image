@@ -10,7 +10,28 @@
 
 ![Docker](https://github.com/ezgo-dev/ezgo-image/raw/master/Docker.png)
 
-使用 docker 來簡化所需要安裝的眾多套件。
+## 1. 直接重建 ISO (需安裝重建所需的 packages 在本機上)
+
+```
+./local-respin.sh <iso-file-name>
+```
+或
+```
+./local-respin.sh <iso-file-name> -k <kernelversion>
+```
+
+例如:
+```
+./local-respin.sh origin/bionic-desktop-amd64.iso
+```
+Or:
+```
+./local-respin.sh origin/bionic-desktop-amd64.iso -k v4.16-rc6
+```
+
+你可以使用 -k 來指定要使用的 mainline kernel 版本。版本號碼可以從 http://kernel.ubuntu.com/~kernel-ppa/mainline 這邊找到，並將目錄名稱當成 -k 的參數。
+
+重建 ISO 依照網路及機器好壞，會花大約 60 到 100 分鐘，並將產生出來的 ISO 存放到 ```destination/``` 目錄裡。
 
 ## 1. 建立 docker image 環境
 
@@ -53,3 +74,6 @@ Or:
 
 需要另外安裝 PPA 的可以在 build.sh 最下方的 isorespin.sh 之後使用 -r 參數來增加。
 
+## 4. 其他修改
+
+關於 ezgo 的修改 scripts 都放在 ezgo 目錄底下。ezgo ppa 及 ezgo 直接相關的修改放在 add-ezgo.sh 裡。

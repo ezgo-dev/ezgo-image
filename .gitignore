@@ -1,3 +1,6 @@
 destination/*.iso
 origin/*.iso
 xmind_installer/*.zip
+isorespin.sh
+destination/isorespin.log
+isorespin.log
