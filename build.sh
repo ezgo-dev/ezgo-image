@@ -46,11 +46,10 @@ installpackages+="filezilla gftp ktorrent sylpheed bluedevil krdc sylpheed-i18n 
 # games
 installpackages+="tuxtype tuxmath palapeli kubrick ksquares knetwalk ksudoku blinken picmi katomic kblackbox kigo kreversi kfourinline bovo gnugo "
 # wine
-installpackages+="wine-stable winetricks "
-# oxoffice
+#installpackages+="wine-stable winetricks "
 
 # Packages that will be removed:
-removepackages="kmail kontact rekonq korganizer konversation ktnef akonadi-backend-mysql mysql-server ubuntu-release-upgrader-qt update-manager-core muon-notifier "
+# move those packages into ezgo/add-ezgo.sh
 
 chmod +x isorespin.sh
 sync;sync;sync

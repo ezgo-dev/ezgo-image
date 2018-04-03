@@ -9,7 +9,9 @@ echo "deb http://free.nchc.org.tw/ezgo-core ezgo13 main" | tee /etc/apt/sources.
 apt update 2>&1
 
 # install ezgo package
-apt install -y ezgo-artwork ezgo-menu ezgo-kde5 ezgo-phet ezgo-usgs ezgo-npa ezgo-chem ezgo-gsyan ezgo-wordtest ezgo-misc-arduino-rules ezgo-misc-decompress ezgo-misc-desktop-files ezgo-misc-furiusisomount ezgo-misc-inkscape ezgo-misc-installer ezgo-misc-kdenlive ezgo-misc-klavaro ezgo-misc-ktuberling ezgo-misc-qtqr ezgo-misc-winff oxoffice6 oxoffice6-writer oxoffice6-calc oxoffice6-impress oxoffice6-math oxoffice6-base oxoffice6-zh-tw oxoffice6-debian-menus 2>&1
+apt install -y ezgo-artwork ezgo-menu ezgo-kde5 ezgo-phet ezgo-usgs ezgo-npa ezgo-chem ezgo-gsyan ezgo-wordtest ezgo-misc-arduino-rules ezgo-misc-decompress ezgo-misc-desktop-files ezgo-misc-furiusisomount ezgo-misc-inkscape ezgo-misc-installer ezgo-misc-kdenlive ezgo-misc-klavaro ezgo-misc-ktuberling ezgo-misc-qtqr ezgo-misc-winff 2>&1
+
+apt purge -y akonadi-backend-mysql mysql-server kmail konversation ktnef kontact rekonq korganizer ubuntu-release-upgrader-qt update-manager-core muon-notifier
 
 # ezgo wallpaper theme
 sed -i 's/defaultWallpaperTheme=.*/defaultWallpaperTheme=ezgo/' /usr/share/plasma/desktoptheme/*/metadata.desktop
