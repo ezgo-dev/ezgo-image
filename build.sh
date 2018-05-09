@@ -26,7 +26,7 @@ installpackages+="gstreamer1.0-libav "
 installpackages+="gstreamer1.0-vaapi "
 
 # for ezgo
-installpackages+="vim vim-gtk gksu zenity im-switch chromium-browser language-pack-zh-hant language-pack-zh-hant-base language-pack-gnome-zh-hant language-pack-kde-zh-hant kde-l10n-zhtw firefox firefox-locale-zh-hant "
+installpackages+="vim vim-gtk zenity im-switch chromium-browser language-pack-zh-hant language-pack-zh-hant-base language-pack-gnome-zh-hant language-pack-kde-zh-hant kde-l10n-zhtw firefox firefox-locale-zh-hant "
 # fcitx
 installpackages+="fcitx-chewing fcitx-googlepinyin fcitx-table-array30 fcitx-table-array30-big fcitx-table-cangjie3 fcitx-table-cangjie5 fcitx-table-boshiamy fcitx-tools "
 # sigil, kazam, blender, and ffdiaporama
