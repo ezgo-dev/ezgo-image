@@ -1,5 +1,5 @@
 #!/bin/bash
 
-#im-config -n hime
-echo "run_im hime" > /etc/skel/.xinputrc
+#im-config -n fcitx
+echo "run_im fcitx" > /etc/skel/.xinputrc
 
