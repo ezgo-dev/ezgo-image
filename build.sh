@@ -34,11 +34,11 @@ installpackages+="sigil kazam blender ffdiaporama "
 # kdegames
 installpackages+="supertux supertuxkart pingus tuxmath tuxtype "
 # office
-installpackages+="scribus dia planner gnucash sigil calibre pdfshuffler qtqr scribus-template dia-shapes "
+installpackages+="scribus dia planner gnucash calibre pdfshuffler qtqr scribus-template dia-shapes "
 # edu
 installpackages+="gcompris ktuberling anki parley kanagram marble kgeography stellarium kmplot geogebra rocs rkward r-base-core gnumeric kalzium bkchem avogadro "
 # painting
-installpcakages+="kolourpaint4 krita inkscape gimp imagemagick gwenview digikam ksnapshot shutter blender freecad fritzing kruler kcolorchooser "
+installpcakages+="kolourpaint4 krita inkscape gimp imagemagick gwenview digikam ksnapshot shutter freecad fritzing kruler kcolorchooser "
 # video/audio
 installpackages+="vlc openshot kdenlive kazam guvcview ffdiaporama k3b brasero furiusisomount amarok musescore tuxguitar hydrogen audacity lmms rosegarden kmix ardour "
 # networking
