@@ -5,6 +5,8 @@
 - ...
 - ...
 
+**注意：以下兩種方法均需要先[下載 Kubuntu 原始 ISO 檔](http://cdimage.ubuntu.com/kubuntu/releases/18.04/release/kubuntu-18.04-desktop-amd64.iso)。**
+
 ### 建立 ezgo ISO
 
 建立 ezgo ISO 有兩種方法

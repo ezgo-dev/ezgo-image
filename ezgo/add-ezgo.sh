@@ -5,7 +5,7 @@ sed -i 's/OS=.*/OS=\"ezgo 14(kde-amd64)\"/' /etc/grub.d/10_linux
 
 # add ezgo ppa
 apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 4CD565B5
-echo "deb http://free.nchc.org.tw/ezgo-core ezgo13 main" | tee /etc/apt/sources.list.d/ezgo.list
+echo "deb http://free.nchc.org.tw/ezgo-core testing main" | tee /etc/apt/sources.list.d/ezgo.list
 apt update 2>&1
 
 # install ezgo package
